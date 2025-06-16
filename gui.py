@@ -243,11 +243,29 @@ class BlobtraceArtGUI:
         )
         self.debug_check.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=5)
         
+        # Save frames checkbox
+        self.save_frames_var = tk.BooleanVar()
+        self.save_frames_check = ttk.Checkbutton(
+            settings_frame, 
+            text="Save individual AI-generated frames during processing", 
+            variable=self.save_frames_var
+        )
+        self.save_frames_check.grid(row=3, column=0, columnspan=2, sticky=tk.W, pady=5)
+        
+        # Outward noise checkbox
+        self.outward_noise_var = tk.BooleanVar(value=True)
+        self.outward_noise_check = ttk.Checkbutton(
+            settings_frame, 
+            text="Enable outward flowing noise on masks (makes masks overflow)", 
+            variable=self.outward_noise_var
+        )
+        self.outward_noise_check.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=5)
+        
         # Max frames for testing
-        ttk.Label(settings_frame, text="Max frames (for testing):").grid(row=3, column=0, sticky=tk.W, pady=2)
+        ttk.Label(settings_frame, text="Max frames (for testing):").grid(row=5, column=0, sticky=tk.W, pady=2)
         self.max_frames_var = tk.StringVar()
         self.max_frames_entry = ttk.Entry(settings_frame, textvariable=self.max_frames_var, width=10)
-        self.max_frames_entry.grid(row=3, column=1, sticky=tk.W, padx=(10, 0), pady=2)
+        self.max_frames_entry.grid(row=5, column=1, sticky=tk.W, padx=(10, 0), pady=2)
         
         settings_frame.columnconfigure(1, weight=1)
         
@@ -402,7 +420,9 @@ class BlobtraceArtGUI:
                 prompt=prompt,
                 max_frames=max_frames,
                 progress_callback=progress_callback,
-                enable_debug=enable_debug
+                enable_debug=enable_debug,
+                save_frames=self.save_frames_var.get(),
+                enable_outward_noise=self.outward_noise_var.get()
             )
             
             # Update UI on completion

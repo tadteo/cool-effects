@@ -59,6 +59,12 @@ NUM_INFERENCE_STEPS = 20
 BLUR_KERNEL_SIZE = 21  # For Gaussian blur on mask
 BLUR_SIGMA = 5.0
 
+# Outward noise settings for mask overflow
+ENABLE_OUTWARD_NOISE = True  # Enable outward-flowing noise on masks
+NOISE_STRENGTH = 0.3  # Strength of outward noise (0-1)
+NOISE_RADIUS = 50  # How far noise extends outward (pixels)
+NOISE_DECAY = 0.7  # How quickly noise decays with distance (0-1)
+
 # GUI settings
 WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 800

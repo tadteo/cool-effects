@@ -154,41 +154,81 @@ def visualize_blob_detection(frame: np.ndarray,
     return vis_frame
 
 
-def visualize_masks(binary_mask: np.ndarray, 
+def visualize_masks(binary_mask: np.ndarray,
                    soft_mask: np.ndarray,
-                   debug_session: DebugSession) -> np.ndarray:
+                   debug_session: DebugSession,
+                   enhanced_mask: Optional[np.ndarray] = None) -> np.ndarray:
     """
-    Visualize binary and soft masks.
+    Visualize binary and soft masks, with optional enhanced mask showing outward noise.
     
     Args:
         binary_mask: Binary mask
         soft_mask: Soft (blurred) mask
         debug_session: Debug session for logging
+        enhanced_mask: Optional enhanced mask with outward noise
         
     Returns:
         Visualization image
     """
     debug_session.next_step("Mask Visualization")
     
-    # Create side-by-side visualization
-    h, w = binary_mask.shape
-    vis_image = np.zeros((h, w * 2, 3), dtype=np.uint8)
-    
-    # Binary mask (left side)
-    vis_image[:, :w, 0] = binary_mask
-    vis_image[:, :w, 1] = binary_mask
-    vis_image[:, :w, 2] = binary_mask
-    
-    # Soft mask (right side)
-    soft_mask_vis = (soft_mask * 255).astype(np.uint8)
-    vis_image[:, w:, 0] = soft_mask_vis
-    vis_image[:, w:, 1] = soft_mask_vis
-    vis_image[:, w:, 2] = soft_mask_vis
-    
-    # Add labels
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(vis_image, "Binary Mask", (10, 30), font, 0.7, (255, 255, 255), 2)
-    cv2.putText(vis_image, "Soft Mask", (w + 10, 30), font, 0.7, (255, 255, 255), 2)
+    if enhanced_mask is not None:
+        # Create 3-way comparison with outward noise
+        h, w = binary_mask.shape
+        vis_image = np.zeros((h, w * 3, 3), dtype=np.uint8)
+        
+        # Binary mask (left)
+        vis_image[:, :w, 0] = binary_mask
+        vis_image[:, :w, 1] = binary_mask
+        vis_image[:, :w, 2] = binary_mask
+        
+        # Enhanced mask with outward noise (middle)
+        enhanced_vis = (enhanced_mask * 255).astype(np.uint8)
+        vis_image[:, w:w*2, 0] = enhanced_vis
+        vis_image[:, w:w*2, 1] = enhanced_vis
+        vis_image[:, w:w*2, 2] = enhanced_vis
+        
+        # Soft mask (right)
+        soft_mask_vis = (soft_mask * 255).astype(np.uint8)
+        vis_image[:, w*2:, 0] = soft_mask_vis
+        vis_image[:, w*2:, 1] = soft_mask_vis
+        vis_image[:, w*2:, 2] = soft_mask_vis
+        
+        # Add labels
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(vis_image, "Binary Mask", (10, 30), font, 0.7, (255, 255, 255), 2)
+        cv2.putText(vis_image, "With Outward Noise", (w + 10, 30), font, 0.7, (255, 255, 0), 2)
+        cv2.putText(vis_image, "Final Soft Mask", (w*2 + 10, 30), font, 0.7, (0, 255, 255), 2)
+        
+        debug_session.save_image((enhanced_mask * 255).astype(np.uint8), "enhanced_mask.jpg", "mask_generation")
+        
+        # Calculate enhanced mask coverage
+        enhanced_pixels = np.sum(enhanced_mask > 0.1)  # Count pixels with >10% opacity
+        total_pixels = binary_mask.shape[0] * binary_mask.shape[1]
+        enhanced_coverage = enhanced_pixels / total_pixels
+        
+        debug_session.log(f"Enhanced mask coverage: {enhanced_coverage:.2%}")
+        
+    else:
+        # Original 2-way comparison
+        h, w = binary_mask.shape
+        vis_image = np.zeros((h, w * 2, 3), dtype=np.uint8)
+        
+        # Binary mask (left side)
+        vis_image[:, :w, 0] = binary_mask
+        vis_image[:, :w, 1] = binary_mask
+        vis_image[:, :w, 2] = binary_mask
+        
+        # Soft mask (right side)
+        soft_mask_vis = (soft_mask * 255).astype(np.uint8)
+        vis_image[:, w:, 0] = soft_mask_vis
+        vis_image[:, w:, 1] = soft_mask_vis
+        vis_image[:, w:, 2] = soft_mask_vis
+        
+        # Add labels
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(vis_image, "Binary Mask", (10, 30), font, 0.7, (255, 255, 255), 2)
+        cv2.putText(vis_image, "Soft Mask", (w + 10, 30), font, 0.7, (255, 255, 255), 2)
     
     debug_session.save_image(vis_image, "mask_comparison.jpg", "mask_generation")
     debug_session.save_image(binary_mask, "binary_mask.jpg", "mask_generation")

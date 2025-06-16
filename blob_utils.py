@@ -9,7 +9,8 @@ from typing import List, Tuple, Optional
 from config import (
     BLOB_THRESHOLD, MIN_BLOB_AREA, MAX_BLOB_AREA, 
     BLOB_EXPANSION_FACTOR, NOISE_INTENSITY, 
-    BLUR_KERNEL_SIZE, BLUR_SIGMA
+    BLUR_KERNEL_SIZE, BLUR_SIGMA,
+    ENABLE_OUTWARD_NOISE, NOISE_STRENGTH, NOISE_RADIUS, NOISE_DECAY
 )
 
 
@@ -109,25 +110,86 @@ def create_blob_mask(frame_shape: Tuple[int, int], contours: List[np.ndarray]) -
     return mask
 
 
+def create_outward_noise_mask(binary_mask: np.ndarray, 
+                             noise_strength: float = NOISE_STRENGTH,
+                             noise_radius: int = NOISE_RADIUS,
+                             noise_decay: float = NOISE_DECAY) -> np.ndarray:
+    """
+    Create outward-flowing noise from mask boundaries to make masks overflow.
+    
+    Args:
+        binary_mask: Original binary mask
+        noise_strength: Strength of the noise effect (0-1)
+        noise_radius: How far the noise extends outward (pixels)
+        noise_decay: How quickly noise decays with distance (0-1)
+        
+    Returns:
+        Enhanced mask with outward noise
+    """
+    # Convert to float for processing
+    mask_float = binary_mask.astype(np.float32) / 255.0
+    
+    # Create distance transform to find edges
+    distance = cv2.distanceTransform(binary_mask, cv2.DIST_L2, 5)
+    
+    # Create outward distance map (distance from mask edges)
+    inverted_mask = 255 - binary_mask
+    outward_distance = cv2.distanceTransform(inverted_mask, cv2.DIST_L2, 5)
+    
+    # Create noise field
+    h, w = binary_mask.shape
+    noise_field = np.random.normal(0, 1, (h, w)).astype(np.float32)
+    
+    # Apply multiple octaves of noise for more organic look
+    noise_octave1 = cv2.GaussianBlur(noise_field, (15, 15), 5)
+    noise_field_small = cv2.resize(noise_field, (w//2, h//2))
+    noise_octave2 = cv2.resize(cv2.GaussianBlur(noise_field_small, (7, 7), 2), (w, h))
+    
+    combined_noise = noise_octave1 * 0.7 + noise_octave2 * 0.3
+    
+    # Create distance-based decay for outward noise
+    decay_mask = np.exp(-outward_distance / (noise_radius * noise_decay))
+    decay_mask = np.clip(decay_mask, 0, 1)
+    
+    # Apply noise only outside the original mask, with distance decay
+    outward_mask = np.where(binary_mask > 0, 0, 1)  # Only outside original mask
+    noise_contribution = (combined_noise * noise_strength * decay_mask * outward_mask)
+    
+    # Combine original mask with outward noise
+    enhanced_mask = mask_float + np.clip(noise_contribution, 0, 1)
+    enhanced_mask = np.clip(enhanced_mask, 0, 1)
+    
+    return enhanced_mask
+
+
 def create_soft_mask(binary_mask: np.ndarray, 
                     blur_size: int = BLUR_KERNEL_SIZE,
-                    blur_sigma: float = BLUR_SIGMA) -> np.ndarray:
+                    blur_sigma: float = BLUR_SIGMA,
+                    enable_outward_noise: bool = ENABLE_OUTWARD_NOISE) -> np.ndarray:
     """
-    Create a soft alpha mask by blurring the binary mask.
+    Create a soft alpha mask by blurring the binary mask with optional outward noise.
     
     Args:
         binary_mask: Binary mask
         blur_size: Size of Gaussian blur kernel
         blur_sigma: Standard deviation for Gaussian blur
+        enable_outward_noise: Whether to add outward-flowing noise
         
     Returns:
         Soft mask with values between 0 and 1
     """
-    # Apply Gaussian blur
-    soft_mask = cv2.GaussianBlur(binary_mask, (blur_size, blur_size), blur_sigma)
-    
-    # Normalize to 0-1 range
-    soft_mask = soft_mask.astype(np.float32) / 255.0
+    if enable_outward_noise:
+        # First add outward noise to make mask overflow
+        enhanced_mask = create_outward_noise_mask(binary_mask)
+        
+        # Then apply Gaussian blur for soft edges
+        soft_mask = cv2.GaussianBlur((enhanced_mask * 255).astype(np.uint8), 
+                                   (blur_size, blur_size), blur_sigma)
+        soft_mask = soft_mask.astype(np.float32) / 255.0
+    else:
+        # Original behavior: just blur
+        soft_mask = cv2.GaussianBlur(binary_mask, (blur_size, blur_size), blur_sigma)
+        soft_mask = soft_mask.astype(np.float32) / 255.0
     
     return soft_mask
 

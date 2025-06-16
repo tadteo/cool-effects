@@ -31,7 +31,9 @@ def process_single_frame(frame: np.ndarray,
                         prompt: str = DEFAULT_PROMPT,
                         progress_callback: Optional[Callable] = None,
                         debug_session: Optional[DebugSession] = None,
-                        frame_index: int = 0) -> np.ndarray:
+                        frame_index: int = 0,
+                        save_frames: bool = False,
+                        enable_outward_noise: bool = True) -> np.ndarray:
     """
     Process a single frame through the complete pipeline.
     
@@ -95,10 +97,16 @@ def process_single_frame(frame: np.ndarray,
     if debug_session:
         debug_session.next_step("Mask Generation")
     
-    soft_mask = create_soft_mask(binary_mask)
+    # Save enhanced mask for debug visualization
+    enhanced_mask = None
+    if enable_outward_noise and debug_session:
+        from blob_utils import create_outward_noise_mask
+        enhanced_mask = create_outward_noise_mask(binary_mask)
+    
+    soft_mask = create_soft_mask(binary_mask, enable_outward_noise=enable_outward_noise)
     
     if debug_session:
-        visualize_masks(binary_mask, soft_mask, debug_session)
+        visualize_masks(binary_mask, soft_mask, debug_session, enhanced_mask)
     
     if progress_callback:
         progress_callback("Generating AI content...")
@@ -116,8 +124,32 @@ def process_single_frame(frame: np.ndarray,
     # Convert PIL to OpenCV format
     ai_frame = pil_to_opencv(ai_generated)
     
+    # Save individual diffusion result
     if debug_session:
         visualize_ai_generation(frame, ai_frame, binary_mask, prompt, debug_session)
+        # Save the pure AI generated frame
+        debug_session.save_image(ai_frame, f"frame_{frame_index:04d}_ai_generated.jpg")
+    elif save_frames:
+        # Create a simple output folder for diffusion frames
+        import os
+        diffusion_frames_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "diffusion_frames")
+        os.makedirs(diffusion_frames_dir, exist_ok=True)
+        
+        # Save the AI generated frame
+        ai_output_path = os.path.join(diffusion_frames_dir, f"frame_{frame_index:04d}_ai_generated.jpg")
+        cv2.imwrite(ai_output_path, ai_frame)
+        
+        # Also save a comparison image
+        h, w = frame.shape[:2]
+        comparison = np.zeros((h, w * 2, 3), dtype=np.uint8)
+        comparison[:, :w] = frame  # Original on left
+        comparison[:, w:] = ai_frame  # AI generated on right
+        
+        comparison_path = os.path.join(diffusion_frames_dir, f"frame_{frame_index:04d}_comparison.jpg")
+        cv2.imwrite(comparison_path, comparison)
+        
+        if frame_index % 10 == 0:  # Log every 10th frame to avoid spam
+            print(f"Saved diffusion results for frame {frame_index} to: {diffusion_frames_dir}")
     
     if progress_callback:
         progress_callback("Blending results...")
@@ -140,7 +172,9 @@ def process_video(input_path: str,
                  prompt: str = DEFAULT_PROMPT,
                  max_frames: Optional[int] = None,
                  progress_callback: Optional[Callable] = None,
-                 enable_debug: bool = DEBUG_MODE) -> bool:
+                 enable_debug: bool = DEBUG_MODE,
+                 save_frames: bool = False,
+                 enable_outward_noise: bool = True) -> bool:
     """
     Process an entire video through the BlobTrace Art pipeline.
     
@@ -211,7 +245,9 @@ def process_video(input_path: str,
                         prompt,
                         lambda msg: None,  # Disable sub-progress for batch processing
                         debug_session,
-                        frame_count
+                        frame_count,
+                        save_frames,
+                        enable_outward_noise
                     )
                     
                     # Write to output video
