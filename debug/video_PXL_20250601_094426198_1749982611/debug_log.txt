@@ -1,0 +1,22 @@
+[12:16:51.696] [INFO] Debug session started: video_PXL_20250601_094426198_1749982611
+[12:16:51.696] [INFO] Debug mode enabled for video: /Users/matteotadiello/Movies/Photos-1-001/PXL_20250601_094426198.TS.mp4
+[12:16:51.696] [INFO] Debug mode: limiting to 5 frames
+[12:16:51.702] [INFO] Saved debug data: /Users/matteotadiello/git-repo/cool-effects/blobtrace-art/debug/video_PXL_20250601_094426198_1749982611/video_info.json
+[12:16:51.703] [INFO] Saved debug data: /Users/matteotadiello/git-repo/cool-effects/blobtrace-art/debug/video_PXL_20250601_094426198_1749982611/processing_params.json
+[12:16:51.819] [INFO] Processing frame 0
+[12:16:51.828] [INFO] Saved debug image: /Users/matteotadiello/git-repo/cool-effects/blobtrace-art/debug/video_PXL_20250601_094426198_1749982611/frame_0000_original.jpg
+[12:16:51.828] [INFO] Step 1: Blob Detection
+[12:16:51.839] [INFO] Step 2: Blob Expansion
+[12:16:51.847] [INFO] Saved debug data: /Users/matteotadiello/git-repo/cool-effects/blobtrace-art/debug/video_PXL_20250601_094426198_1749982611/frame_0000_blob_analysis.json
+[12:16:51.847] [INFO] Step 3: Blob Detection Visualization
+[12:16:51.856] [INFO] Saved debug data: /Users/matteotadiello/git-repo/cool-effects/blobtrace-art/debug/video_PXL_20250601_094426198_1749982611/step_003_blob_detection_blob_stats.json
+[12:16:51.866] [INFO] Saved debug image: /Users/matteotadiello/git-repo/cool-effects/blobtrace-art/debug/video_PXL_20250601_094426198_1749982611/step_003_blob_detection_blob_visualization.jpg
+[12:16:51.866] [INFO] Detected 98 blobs, expanded to 98
+[12:16:51.867] [INFO] Step 4: Mask Generation
+[12:16:51.873] [INFO] Step 5: Mask Visualization
+[12:16:51.892] [INFO] Saved debug image: /Users/matteotadiello/git-repo/cool-effects/blobtrace-art/debug/video_PXL_20250601_094426198_1749982611/step_005_mask_generation_mask_comparison.jpg
+[12:16:51.898] [INFO] Saved debug image: /Users/matteotadiello/git-repo/cool-effects/blobtrace-art/debug/video_PXL_20250601_094426198_1749982611/step_005_mask_generation_binary_mask.jpg
+[12:16:51.904] [INFO] Saved debug image: /Users/matteotadiello/git-repo/cool-effects/blobtrace-art/debug/video_PXL_20250601_094426198_1749982611/step_005_mask_generation_soft_mask.jpg
+[12:16:51.905] [INFO] Mask coverage: 10.62%
+[12:16:51.905] [INFO] Step 6: AI Content Generation
+[12:16:54.243] [ERROR] Processing failed: Error no file named diffusion_pytorch_model.bin found in directory /Users/matteotadiello/.cache/huggingface/hub/models--runwayml--stable-diffusion-inpainting/snapshots/8a4288a76071f7280aedbdb3253bdb9e9d5d84bb/vae.
