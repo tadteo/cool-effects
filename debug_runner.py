@@ -29,7 +29,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description="BlobTrace Art - Debug Runner")
     parser.add_argument("input", help="Input video file path")
-    parser.add_argument("-p", "--prompt", default="dreamy watercolor painting", 
+    parser.add_argument("-p", "--prompt", default="stylized watercolor painting espressionism style with minimal color palette", 
                        help="Text prompt for AI generation")
     parser.add_argument("--frames", type=int, default=3, 
                        help="Number of frames to process (default: 3)")

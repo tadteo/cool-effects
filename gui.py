@@ -1,6 +1,6 @@
 """
-GUI module for BlobTrace Art
-Provides drag-and-drop interface with progress visualization
+LEGACY tkinter GUI module for BlobTrace Art (replaced by gui_dpg.py)
+This is kept for reference but the new Dear PyGui version is recommended
 """
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
@@ -21,8 +21,17 @@ from main import process_video
 from video_utils import get_video_info
 from diffusion import get_pipeline_info, generate_artistic_prompt
 
+# ===== FONT SIZE CONSTANTS (EASY TO CHANGE) =====
+TITLE_FONT_SIZE = 56        # Main title
+LARGE_TEXT_SIZE = 18        # Drop area text, important labels
+NORMAL_TEXT_SIZE = 16       # Regular labels, buttons
+SMALL_TEXT_SIZE = 14        # Log text, detailed info
+FONT_FAMILY = 'Arial'       # Font family for all text
 
-# Removed complex splash screen - keeping it simple
+# Widget dimension constants
+DROP_AREA_HEIGHT = 120      # Height of drag-drop area
+LOG_HEIGHT = 10             # Height of log text area in lines
+# ==================================================
 
 
 class DragDropFrame(tk.Frame):
@@ -39,7 +48,7 @@ class DragDropFrame(tk.Frame):
         self.drop_label = tk.Label(
             self, 
             text="Drag and drop video file here\n(or click to browse)",
-            font=('Arial', 12),
+            font=(FONT_FAMILY, LARGE_TEXT_SIZE),
             bg='lightgray',
             fg='darkgray',
             justify='center'
@@ -105,7 +114,8 @@ class VideoPreview(tk.Frame):
             self.original_frame,
             text="No video loaded",
             width=40, height=20,
-            bg='white'
+            bg='white',
+            font=(FONT_FAMILY, NORMAL_TEXT_SIZE)
         )
         self.original_label.pack()
         
@@ -117,7 +127,8 @@ class VideoPreview(tk.Frame):
             self.processed_frame,
             text="Processing not started",
             width=40, height=20,
-            bg='white'
+            bg='white',
+            font=(FONT_FAMILY, NORMAL_TEXT_SIZE)
         )
         self.processed_label.pack()
         
@@ -179,6 +190,11 @@ class BlobtraceArtGUI:
         self.root.title("BlobTrace Art - Artistic Video Reinterpreter")
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         
+        # Font zoom system (offset applied to constants)
+        self.font_zoom_offset = 0  # Offset to add to all font constants
+        self.min_zoom_offset = -6
+        self.max_zoom_offset = 12
+        
         # Variables
         self.current_video_path = None
         self.processing_thread = None
@@ -186,12 +202,24 @@ class BlobtraceArtGUI:
         
         print("Setting up interface...")
         self.setup_ui()
+        
+        # Setup keyboard shortcuts for font zoom
+        self.setup_keyboard_shortcuts()
+        
         print("Checking dependencies...")
         self.check_dependencies()
         print("GUI ready!")
         
     def setup_ui(self):
         """Set up the user interface."""
+        # Configure ttk styles for larger fonts
+        style = ttk.Style()
+        style.configure('Large.TCheckbutton', font=self.get_font(NORMAL_TEXT_SIZE))
+        style.configure('Large.TButton', font=self.get_font(NORMAL_TEXT_SIZE))
+        style.configure('Large.TLabel', font=self.get_font(NORMAL_TEXT_SIZE))
+        # For LabelFrame, we need to configure the Label part specifically
+        style.configure('TLabelFrame.Label', font=self.get_font(NORMAL_TEXT_SIZE))
+        
         # Main container
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -202,27 +230,27 @@ class BlobtraceArtGUI:
         main_frame.columnconfigure(1, weight=1)
         
         # Title
-        title_label = tk.Label(
+        self.title_label = tk.Label(
             main_frame, 
             text="BlobTrace Art", 
-            font=('Arial', 18, 'bold'),
+            font=self.get_font(TITLE_FONT_SIZE, 'bold'),
             fg='darkblue'
         )
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        self.title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
         
         # Drag and drop area
         self.drag_drop = DragDropFrame(main_frame, self.on_video_selected)
         self.drag_drop.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
-        self.drag_drop.configure(height=100)
+        self.drag_drop.configure(height=DROP_AREA_HEIGHT)
         
         # Settings frame
         settings_frame = ttk.LabelFrame(main_frame, text="Settings", padding="10")
         settings_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
         
         # Prompt input
-        ttk.Label(settings_frame, text="AI Prompt:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        ttk.Label(settings_frame, text="AI Prompt:", font=self.get_font(NORMAL_TEXT_SIZE)).grid(row=0, column=0, sticky=tk.W, pady=2)
         self.prompt_var = tk.StringVar(value=DEFAULT_PROMPT)
-        self.prompt_entry = ttk.Entry(settings_frame, textvariable=self.prompt_var, width=50)
+        self.prompt_entry = ttk.Entry(settings_frame, textvariable=self.prompt_var, width=50, font=self.get_font(NORMAL_TEXT_SIZE))
         self.prompt_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(10, 0), pady=2)
         
         # Artistic style checkbox
@@ -232,6 +260,7 @@ class BlobtraceArtGUI:
             text="Use random artistic styles", 
             variable=self.artistic_var
         )
+        self.artistic_check.configure(style='Large.TCheckbutton')
         self.artistic_check.grid(row=1, column=0, columnspan=2, sticky=tk.W, pady=5)
         
         # Debug mode checkbox
@@ -241,6 +270,7 @@ class BlobtraceArtGUI:
             text="Enable debug mode (saves intermediate results)", 
             variable=self.debug_var
         )
+        self.debug_check.configure(style='Large.TCheckbutton')
         self.debug_check.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=5)
         
         # Save frames checkbox
@@ -250,6 +280,7 @@ class BlobtraceArtGUI:
             text="Save individual AI-generated frames during processing", 
             variable=self.save_frames_var
         )
+        self.save_frames_check.configure(style='Large.TCheckbutton')
         self.save_frames_check.grid(row=3, column=0, columnspan=2, sticky=tk.W, pady=5)
         
         # Outward noise checkbox
@@ -259,13 +290,91 @@ class BlobtraceArtGUI:
             text="Enable outward flowing noise on masks (makes masks overflow)", 
             variable=self.outward_noise_var
         )
+        self.outward_noise_check.configure(style='Large.TCheckbutton')
         self.outward_noise_check.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=5)
         
+        # Flowing masks checkbox
+        self.flowing_masks_var = tk.BooleanVar(value=True)
+        self.flowing_masks_check = ttk.Checkbutton(
+            settings_frame, 
+            text="Enable flowing, wavy connections between nearby masks", 
+            variable=self.flowing_masks_var
+        )
+        self.flowing_masks_check.configure(style='Large.TCheckbutton')
+        self.flowing_masks_check.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=5)
+        
+        # NEW: Mask smoothing controls
+        # Smoothing intensity slider with percentage display
+        smoothing_frame = ttk.Frame(settings_frame)
+        smoothing_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=2)
+        ttk.Label(smoothing_frame, text="Mask smoothing intensity:", font=self.get_font(NORMAL_TEXT_SIZE)).pack(side=tk.LEFT)
+        
+        self.smoothing_var = tk.DoubleVar(value=0.5)
+        self.smoothing_scale = ttk.Scale(smoothing_frame, from_=0.0, to=1.0, variable=self.smoothing_var, orient=tk.HORIZONTAL, length=200)
+        self.smoothing_scale.pack(side=tk.LEFT, padx=(10, 5))
+        
+        self.smoothing_label = ttk.Label(smoothing_frame, text="50%", font=self.get_font(NORMAL_TEXT_SIZE))
+        self.smoothing_label.pack(side=tk.LEFT)
+        
+        # Update percentage display when slider changes
+        def update_smoothing_label(*args):
+            percentage = int(self.smoothing_var.get() * 100)
+            self.smoothing_label.configure(text=f"{percentage}%")
+        self.smoothing_var.trace('w', update_smoothing_label)
+        
+        # Convex hull checkbox
+        self.convex_hull_var = tk.BooleanVar(value=False)
+        self.convex_hull_check = ttk.Checkbutton(
+            settings_frame, 
+            text="Enable convex hull smoothing (ultra-smooth shapes)", 
+            variable=self.convex_hull_var
+        )
+        self.convex_hull_check.configure(style='Large.TCheckbutton')
+        self.convex_hull_check.grid(row=7, column=0, columnspan=2, sticky=tk.W, pady=5)
+        
+        # NEW: Mask padding controls
+        # Padding intensity slider with percentage display
+        padding_frame = ttk.Frame(settings_frame)
+        padding_frame.grid(row=8, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=2)
+        ttk.Label(padding_frame, text="Mask padding (enlargement):", font=self.get_font(NORMAL_TEXT_SIZE)).pack(side=tk.LEFT)
+        
+        self.padding_var = tk.DoubleVar(value=0.7)
+        self.padding_scale = ttk.Scale(padding_frame, from_=0.0, to=1.0, variable=self.padding_var, orient=tk.HORIZONTAL, length=200)
+        self.padding_scale.pack(side=tk.LEFT, padx=(10, 5))
+        
+        self.padding_label = ttk.Label(padding_frame, text="70%", font=self.get_font(NORMAL_TEXT_SIZE))
+        self.padding_label.pack(side=tk.LEFT)
+        
+        # Update percentage display when slider changes
+        def update_padding_label(*args):
+            percentage = int(self.padding_var.get() * 100)
+            self.padding_label.configure(text=f"{percentage}%")
+        self.padding_var.trace('w', update_padding_label)
+        
+        # NEW: Organic curves controls
+        # Organic curve intensity slider with percentage display
+        organic_frame = ttk.Frame(settings_frame)
+        organic_frame.grid(row=9, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=2)
+        ttk.Label(organic_frame, text="Organic curves (sinuous):", font=self.get_font(NORMAL_TEXT_SIZE)).pack(side=tk.LEFT)
+        
+        self.organic_var = tk.DoubleVar(value=0.8)
+        self.organic_scale = ttk.Scale(organic_frame, from_=0.0, to=1.0, variable=self.organic_var, orient=tk.HORIZONTAL, length=200)
+        self.organic_scale.pack(side=tk.LEFT, padx=(10, 5))
+        
+        self.organic_label = ttk.Label(organic_frame, text="80%", font=self.get_font(NORMAL_TEXT_SIZE))
+        self.organic_label.pack(side=tk.LEFT)
+        
+        # Update percentage display when slider changes
+        def update_organic_label(*args):
+            percentage = int(self.organic_var.get() * 100)
+            self.organic_label.configure(text=f"{percentage}%")
+        self.organic_var.trace('w', update_organic_label)
+        
         # Max frames for testing
-        ttk.Label(settings_frame, text="Max frames (for testing):").grid(row=5, column=0, sticky=tk.W, pady=2)
+        ttk.Label(settings_frame, text="Max frames (for testing):", font=self.get_font(NORMAL_TEXT_SIZE)).grid(row=10, column=0, sticky=tk.W, pady=2)
         self.max_frames_var = tk.StringVar()
-        self.max_frames_entry = ttk.Entry(settings_frame, textvariable=self.max_frames_var, width=10)
-        self.max_frames_entry.grid(row=5, column=1, sticky=tk.W, padx=(10, 0), pady=2)
+        self.max_frames_entry = ttk.Entry(settings_frame, textvariable=self.max_frames_var, width=10, font=self.get_font(NORMAL_TEXT_SIZE))
+        self.max_frames_entry.grid(row=10, column=1, sticky=tk.W, padx=(10, 0), pady=2)
         
         settings_frame.columnconfigure(1, weight=1)
         
@@ -273,7 +382,8 @@ class BlobtraceArtGUI:
         self.process_button = ttk.Button(
             main_frame, 
             text="Process Video", 
-            command=self.start_processing
+            command=self.start_processing,
+            style='Large.TButton'
         )
         self.process_button.grid(row=3, column=0, columnspan=2, pady=10)
         
@@ -292,7 +402,7 @@ class BlobtraceArtGUI:
         
         # Status label
         self.status_var = tk.StringVar(value="Ready")
-        self.status_label = ttk.Label(progress_frame, textvariable=self.status_var)
+        self.status_label = ttk.Label(progress_frame, textvariable=self.status_var, style='Large.TLabel')
         self.status_label.grid(row=1, column=0, sticky=tk.W, pady=2)
         
         progress_frame.columnconfigure(0, weight=1)
@@ -305,7 +415,7 @@ class BlobtraceArtGUI:
         log_frame = ttk.LabelFrame(main_frame, text="Log", padding="5")
         log_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=8, width=80)
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=LOG_HEIGHT, width=80, font=self.get_font(SMALL_TEXT_SIZE))
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         log_frame.columnconfigure(0, weight=1)
@@ -413,6 +523,14 @@ class BlobtraceArtGUI:
             if enable_debug:
                 self.root.after(0, lambda: self.log("Debug mode enabled - intermediate results will be saved"))
                     
+            # Update config for flowing masks, smoothing, padding, and organic curves
+            import config
+            config.ENABLE_FLOWING_MASKS = self.flowing_masks_var.get()
+            config.SMOOTHING_INTENSITY = self.smoothing_var.get()
+            config.ENABLE_CONVEX_HULL_SMOOTHING = self.convex_hull_var.get()
+            config.PADDING_INTENSITY = self.padding_var.get()
+            config.CURVE_INTENSITY = self.organic_var.get()
+            
             # Process video
             success = process_video(
                 input_path=input_path,
@@ -486,13 +604,102 @@ class BlobtraceArtGUI:
         self.log(error_msg)
         messagebox.showerror("Error", error_msg)
         
+    def setup_keyboard_shortcuts(self):
+        """Setup keyboard shortcuts for font zoom."""
+        # Bind zoom shortcuts (works on both Linux and other platforms)
+        self.root.bind('<Control-plus>', self.increase_font_size)
+        self.root.bind('<Control-equal>', self.increase_font_size)  # For keyboards where + requires Shift
+        self.root.bind('<Control-minus>', self.decrease_font_size)
+        self.root.bind('<Control-0>', self.reset_font_size)
+        
+        # Also bind Cmd shortcuts for Mac compatibility
+        self.root.bind('<Command-plus>', self.increase_font_size)
+        self.root.bind('<Command-equal>', self.increase_font_size)
+        self.root.bind('<Command-minus>', self.decrease_font_size)
+        self.root.bind('<Command-0>', self.reset_font_size)
+        
+        # Make sure the window can receive focus for shortcuts
+        self.root.focus_set()
+        
+        # Log the shortcuts
+        self.root.after(1000, lambda: self.log("💡 Font zoom shortcuts: Ctrl+/Ctrl- to zoom, Ctrl+0 to reset"))
+        
+    def increase_font_size(self, event=None):
+        """Increase font size."""
+        if self.font_zoom_offset < self.max_zoom_offset:
+            self.font_zoom_offset += 1
+            self.log(f"Font zoom increased (offset: +{self.font_zoom_offset})")
+            self.update_all_fonts()
+        
+    def decrease_font_size(self, event=None):
+        """Decrease font size."""
+        if self.font_zoom_offset > self.min_zoom_offset:
+            self.font_zoom_offset -= 1
+            self.log(f"Font zoom decreased (offset: {self.font_zoom_offset:+d})")
+            self.update_all_fonts()
+            
+    def reset_font_size(self, event=None):
+        """Reset font size to default."""
+        self.font_zoom_offset = 0
+        self.log("Font zoom reset to default")
+        self.update_all_fonts()
+        
+    def get_font(self, base_size=NORMAL_TEXT_SIZE, weight='normal'):
+        """Get font tuple with specified base size plus zoom offset."""
+        final_size = base_size + self.font_zoom_offset
+        return (FONT_FAMILY, final_size, weight)
+        
+    def update_all_fonts(self):
+        """Update fonts for all widgets."""
+        try:
+            # Update TTK styles first
+            style = ttk.Style()
+            style.configure('Large.TCheckbutton', font=self.get_font(NORMAL_TEXT_SIZE))
+            style.configure('Large.TButton', font=self.get_font(NORMAL_TEXT_SIZE))
+            style.configure('Large.TLabel', font=self.get_font(NORMAL_TEXT_SIZE))
+            style.configure('TLabelFrame.Label', font=self.get_font(NORMAL_TEXT_SIZE))
+            
+            # Update title
+            if hasattr(self, 'title_label'):
+                self.title_label.configure(font=self.get_font(TITLE_FONT_SIZE, 'bold'))
+            
+            # Update drag/drop area
+            if hasattr(self, 'drag_drop') and hasattr(self.drag_drop, 'drop_label'):
+                self.drag_drop.drop_label.configure(font=self.get_font(LARGE_TEXT_SIZE))
+            
+            # Update specific widgets we know about
+            widget_updates = [
+                ('prompt_entry', self.get_font(NORMAL_TEXT_SIZE)),
+                ('max_frames_entry', self.get_font(NORMAL_TEXT_SIZE)),
+                ('log_text', self.get_font(SMALL_TEXT_SIZE)),
+            ]
+            
+            for widget_name, font in widget_updates:
+                if hasattr(self, widget_name):
+                    try:
+                        getattr(self, widget_name).configure(font=font)
+                    except Exception as e:
+                        print(f"Could not update font for {widget_name}: {e}")
+            
+            # Force a refresh of the entire window
+            self.root.update_idletasks()
+            
+        except Exception as e:
+            print(f"Error updating fonts: {e}")
+            import traceback
+            traceback.print_exc()
+        
     def run(self):
         """Run the GUI application."""
         self.root.mainloop()
 
 
 def main():
-    """Run the GUI application."""
+    """Run the LEGACY tkinter GUI application (use gui_dpg.py instead!)."""
+    print("⚠️  LEGACY GUI: Please use the new Dear PyGui version instead!")
+    print("   Run: python gui_dpg.py")
+    print("   This tkinter version is kept for reference only.\n")
+    
     # Disable matplotlib GUI when running from GUI to prevent threading issues
     import matplotlib
     matplotlib.use('Agg')  # Use non-GUI backend

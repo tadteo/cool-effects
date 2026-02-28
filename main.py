@@ -12,12 +12,15 @@ import time
 
 from config import (
     INPUT_DIR, OUTPUT_DIR, DEFAULT_OUTPUT_FILENAME, DEFAULT_PROMPT,
-    DEBUG_MODE, DEBUG_MAX_FRAMES
+    DEBUG_MODE, DEBUG_MAX_FRAMES, ENABLE_FLOWING_MASKS, FLOWING_MASK_STYLE,
+    FLOW_CONNECTION_DISTANCE, FLOW_STRENGTH, FLOW_WAVE_FREQUENCY, FLOW_SMOOTHING_ITERATIONS
 )
 from video_utils import extract_frames, get_video_info, VideoWriter
 from blob_utils import (
     process_frame_blobs, create_soft_mask, blend_with_mask,
-    detect_blobs, expand_blob_splat, create_blob_mask
+    detect_blobs, expand_blob_splat, create_blob_mask,
+    create_flowing_mask_connections, create_convex_hull_flowing_mask,
+    create_ultra_smooth_mask, create_padded_mask, create_kiss_organic_blob
 )
 from diffusion import inpaint_region, pil_to_opencv, generate_artistic_prompt
 from debug_utils import (
@@ -77,7 +80,71 @@ def process_single_frame(frame: np.ndarray,
     # Create masks
     binary_mask = create_blob_mask(frame.shape, expanded_contours)
     
+    # Apply flowing mask connections if enabled
+    if ENABLE_FLOWING_MASKS and FLOWING_MASK_STYLE != "disabled":
+        if debug_session:
+            debug_session.log(f"Applying flowing mask style: {FLOWING_MASK_STYLE}")
+            # Save original mask for comparison
+            debug_session.save_image(binary_mask, f"frame_{frame_index:04d}_original_mask.jpg")
+        
+        if FLOWING_MASK_STYLE == "flow_field":
+            binary_mask = create_flowing_mask_connections(
+                binary_mask,
+                connection_distance=FLOW_CONNECTION_DISTANCE,
+                flow_strength=FLOW_STRENGTH,
+                wave_frequency=FLOW_WAVE_FREQUENCY,
+                smoothing_iterations=FLOW_SMOOTHING_ITERATIONS
+            )
+        elif FLOWING_MASK_STYLE == "convex_hull":
+            binary_mask = create_convex_hull_flowing_mask(
+                binary_mask,
+                hull_expansion=1.2 + FLOW_STRENGTH * 0.3,
+                smoothing_strength=FLOW_STRENGTH
+            )
+        
+        if debug_session:
+            # Save flowing mask for comparison
+            debug_session.save_image(binary_mask, f"frame_{frame_index:04d}_flowing_mask.jpg")
+    
+    # Apply ultra-smooth mask processing
     if debug_session:
+        debug_session.log("Applying ultra-smooth mask processing...")
+        # Save pre-smoothing mask for comparison
+        debug_session.save_image(binary_mask, f"frame_{frame_index:04d}_before_smoothing.jpg")
+    
+    # Create ultra-smooth version of the mask
+    binary_mask = create_ultra_smooth_mask(binary_mask)
+    
+    if debug_session:
+        # Save ultra-smooth mask for comparison
+        debug_session.save_image(binary_mask, f"frame_{frame_index:04d}_ultra_smooth_mask.jpg")
+    
+    # Apply padding to expand the mask
+    if debug_session:
+        debug_session.log("Applying mask padding...")
+        # Save pre-padding mask for comparison
+        debug_session.save_image(binary_mask, f"frame_{frame_index:04d}_before_padding.jpg")
+    
+    # Create padded version of the mask
+    binary_mask = create_padded_mask(binary_mask)
+    
+    if debug_session:
+        # Save padded mask for comparison
+        debug_session.save_image(binary_mask, f"frame_{frame_index:04d}_padded_mask.jpg")
+    
+    # Apply ultra-organic curves for sinuous, flowing boundaries
+    if debug_session:
+        debug_session.log("Applying organic curves for sinuous boundaries...")
+        # Save pre-organic mask for comparison
+        debug_session.save_image(binary_mask, f"frame_{frame_index:04d}_before_organic.jpg")
+    
+    # Create KISS organic blob with flowing curves  
+    binary_mask = create_kiss_organic_blob(binary_mask)
+    
+    if debug_session:
+        # Save organic curves mask for comparison
+        debug_session.save_image(binary_mask, f"frame_{frame_index:04d}_organic_curves_mask.jpg")
+        
         # Analyze blob characteristics
         blob_analysis = analyze_blob_characteristics(original_contours)
         debug_session.save_data(blob_analysis, f"frame_{frame_index:04d}_blob_analysis.json")
